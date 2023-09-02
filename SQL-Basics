@@ -1,0 +1,229 @@
+  -- Looking at the data
+
+SELECT
+  *
+FROM
+  practice-319716.CovidDeath.CovidDeath
+WHERE
+  continent IS NOT NULL
+
+  -- Looking at Total Cases vs Total Deaths
+SELECT
+  Location,
+  date,
+  total_cases,
+  total_deaths,
+  (total_deaths/total_cases)*100 AS DeathPercentage
+FROM
+  practice-319716.CovidDeath.CovidDeath
+ORDER BY
+  1,
+  2
+  -- Looking at Total Cases vs Total Deaths in the US
+SELECT
+  Location,
+  date,
+  total_cases,
+  total_deaths,
+  (total_deaths/total_cases)*100 AS DeathPercentage
+FROM
+  practice-319716.CovidDeath.CovidDeath
+WHERE
+  Location LIKE '%States'
+ORDER BY
+  1,
+  2
+
+  -- Looking at Total Cases vs Total Deaths in Lebanon
+
+SELECT
+  Location,
+  date,
+  total_cases,
+  total_deaths,
+  (total_deaths/total_cases)*100 AS DeathPercentage
+FROM
+  practice-319716.CovidDeath.CovidDeath
+WHERE
+  Location LIKE '%Lebanon'
+ORDER BY
+ 3 desc
+
+  -- Shows what percentage of the population got Covid
+
+SELECT
+  Location,
+  date,
+  total_cases,
+  total_deaths,
+  Population,
+  (total_cases/population)*100 AS PercentPopulationInfected
+FROM
+  practice-319716.CovidDeath.CovidDeath
+WHERE
+  Location LIKE '%Lebanon'
+ORDER BY
+  1,
+  2
+
+  -- Looking at Countries with Highest Infection Rate compared to Population
+
+SELECT
+  Location,
+  Population,
+  MAX(total_cases) AS HighestInfectionCount,
+  MAX((total_cases/population)*100) AS PercentPopulationInfected
+FROM
+  practice-319716.CovidDeath.CovidDeath
+GROUP BY
+  Location,
+  Population
+ORDER BY
+  PercentPopulationInfected DESC
+
+  -- Looking at Countries with Highest Death Rate compared to Population
+
+SELECT
+  Location,
+  Population,
+  MAX(total_deaths) AS HighestDeathCount,
+  MAX((total_deaths/population)*100) AS PercentDeathRate
+FROM
+  practice-319716.CovidDeath.CovidDeath
+WHERE
+  continent IS NOT NULL
+GROUP BY
+  Location,
+  Population
+ORDER BY
+  PercentDeathRate DESC
+
+  -- Looking at the highest death count by continent
+
+SELECT
+  continent,
+  MAX(population) AS Population,
+  MAX(CAST(total_deaths AS int)) AS TotalDeaths,
+  MAX(total_deaths/population)*100 AS DeathRate
+FROM
+  practice-319716.CovidDeath.CovidDeath
+WHERE
+  continent IS NOT NULL
+GROUP BY
+  continent
+ORDER BY
+  DeathRate DESC
+
+  -- Looking at global numbers
+
+SELECT
+  date,
+  MAX(total_cases) AS TotalCases,
+  MAX(total_deaths) AS TotalDeaths
+FROM
+  practice-319716.CovidDeath.CovidDeath
+WHERE
+  continent IS NOT NULL
+GROUP BY
+  date
+ORDER BY
+  date ASC
+
+  -- Join the two tables together
+
+SELECT
+  dea.continent,
+  dea.location,
+  dea.date,
+  dea.population,
+  vac.new_vaccinations
+FROM
+  practice-319716.CovidDeath.CovidDeath AS dea
+JOIN
+  practice-319716.CovidVaccinations.CovidVaccinations AS vac
+ON
+  dea.location = vac.location
+  AND dea.date = vac.date
+WHERE
+  dea.continent IS NOT NULL
+ORDER BY
+  5 DESC
+
+  -- Looking at the rolling sum of the vaccinations
+
+SELECT
+  dea.continent,
+  dea.location,
+  dea.date,
+  dea.population,
+  vac.new_vaccinations,
+  SUM(vac.new_vaccinations) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS RollingPeopleVaccinated
+FROM
+  practice-319716.CovidDeath.CovidDeath AS dea
+JOIN
+  practice-319716.CovidVaccinations.CovidVaccinations AS vac
+ON
+  dea.location = vac.location
+  AND dea.date = vac.date
+WHERE
+  dea.continent IS NOT NULL
+ORDER BY
+  RollingPeopleVaccinated DESC
+
+  -- Create a temp table (CTE)
+
+WITH
+  PopvsVac AS (
+  SELECT
+    dea.continent AS Continent,
+    dea.location AS Location,
+    dea.date AS Date,
+    dea.population AS Population,
+    vac.new_vaccinations AS NewVaccinations,
+    SUM(vac.new_vaccinations) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS RollingPeopleVaccinated
+  FROM
+    practice-319716.CovidDeath.CovidDeath AS dea
+  JOIN
+    practice-319716.CovidVaccinations.CovidVaccinations AS vac
+  ON
+    dea.location = vac.location
+    AND dea.date = vac.date
+  WHERE
+    dea.continent IS NOT NULL )
+SELECT
+  *,
+  (RollingPeopleVaccinated/Population) AS PercentVaccination
+FROM
+  PopvsVac
+ORDER BY
+  PercentVaccination DESC
+
+-- Creating a view table
+
+CREATE VIEW practice-319716.CovidDeath.DeathRateinLebanon AS
+SELECT
+  Location,
+  date,
+  total_cases,
+  total_deaths,
+  (total_deaths/total_cases)*100 AS DeathPercentage
+FROM
+  practice-319716.CovidDeath.CovidDeath
+WHERE
+  Location LIKE '%Lebanon'
+
+SELECT
+  Location,
+  date,
+  total_cases,
+  SUM(total_cases) OVER (ORDER BY date) as RunningSUMcases,
+  total_deaths,
+  SUM(total_deaths) OVER (ORDER BY date) as RunningSUMdeaths,
+  (total_deaths/total_cases)*100 AS DeathRate
+FROM
+  practice-319716.CovidDeath.CovidDeath
+WHERE
+  Location LIKE '%Lebanon'
+  AND total_cases is not null
+ORDER BY
+ 2 asc
